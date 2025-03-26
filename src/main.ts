@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import {
   isEmail,
   isEmpty,
@@ -15,8 +16,10 @@ import {
   EventListenerInterface,
   FieldConfigInterface,
   FieldRuleInterface,
+  FieldInterface,
   GlobalConfigInterface,
   GroupFieldsInterface,
+  GroupFieldInterface,
   GroupRuleInterface,
   GroupRules,
   Rules,
@@ -65,26 +68,23 @@ const defaultGlobalConfig: GlobalConfigInterface = {
   testingMode: false,
   validateBeforeSubmitting: false,
   submitFormAutomatically: false,
+  renderErrorsImmediately: false,
 };
 
 class JustValidate {
   form: HTMLFormElement | null = null;
-  fields: FieldsInterface = {};
-  groupFields: GroupFieldsInterface = {};
-  errors: {
-    [key: string]: {
-      message?: string;
-    };
-  } = {};
+  fields: FieldsInterface = new Map();
+  groupFields: GroupFieldsInterface = new Map();
+  errors: Map<FieldSelectorType, string> = new Map();
   isValid = false;
   isSubmitted = false;
   globalConfig: GlobalConfigInterface = defaultGlobalConfig;
-  errorLabels: { [name: string]: HTMLDivElement } = {};
-  successLabels: { [name: string]: HTMLDivElement } = {};
+  errorLabels: Map<FieldSelectorType, HTMLDivElement> = new Map();
+  successLabels: Map<FieldSelectorType, HTMLDivElement> = new Map();
   eventListeners: EventListenerInterface[] = [];
   dictLocale: LocaleInterface[] = defaultDictionary;
   currentLocale = 'en';
-  customStyleTags: { [id: string]: HTMLStyleElement } = {};
+  customStyleTags: Map<string, HTMLStyleElement> = new Map();
   onSuccessCallback?: (event?: Event) => void;
   onFailCallback?: (
     fields: FieldsInterface,
@@ -94,7 +94,7 @@ class JustValidate {
   tooltips: TooltipInstance[] = [];
   lastScrollPosition?: number;
   isScrollTick?: boolean;
-  fieldIds: Map<FieldSelectorType, string> = new Map();
+  fieldIds: Map<FieldSelectorType, FieldSelectorType> = new Map();
 
   constructor(
     form: string | Element,
@@ -110,14 +110,14 @@ class JustValidate {
     dictLocale?: LocaleInterface[]
   ): void {
     this.form = null;
-    this.errors = {};
+    this.errors = new Map();
     this.isValid = false;
     this.isSubmitted = false;
     this.globalConfig = defaultGlobalConfig;
-    this.errorLabels = {};
-    this.successLabels = {};
+    this.errorLabels = new Map();
+    this.successLabels = new Map();
     this.eventListeners = [];
-    this.customStyleTags = {};
+    this.customStyleTags = new Map();
     this.tooltips = [];
     this.currentLocale = 'en';
 
@@ -148,18 +148,17 @@ class JustValidate {
       const styleTag = document.createElement('style');
       styleTag.textContent = errorLabelCss;
 
-      this.customStyleTags[CustomStyleTagIds.Label] =
-        document.head.appendChild(styleTag);
+      this.customStyleTags.set(CustomStyleTagIds.Label, document.head.appendChild(styleTag));
 
       this.addListener('scroll', document, this.handleDocumentScroll);
     }
   }
 
-  getKeyByFieldSelector = (field: FieldSelectorType): string | undefined => {
+  getKeyByFieldSelector = (field: FieldSelectorType): FieldSelectorType | undefined => {
     return this.fieldIds.get(field);
   };
 
-  getFieldSelectorByKey = (key: string): FieldSelectorType | undefined => {
+  getFieldSelectorByKey = (key: FieldSelectorType): FieldSelectorType | undefined => {
     for (const [fieldSelector, k] of this.fieldIds) {
       if (key === k) {
         return fieldSelector;
@@ -170,27 +169,28 @@ class JustValidate {
   };
 
   getCompatibleFields = (): FieldsInterface => {
-    const fields = {};
+    const fields = new Map();
 
-    Object.keys(this.fields).forEach((key) => {
+    this.fields.forEach((value, key) => {
       let newKey = key;
       const fieldSelector = this.getFieldSelectorByKey(key);
 
       if (typeof fieldSelector === 'string') {
         newKey = fieldSelector;
       }
-      fields[newKey] = { ...this.fields[key] };
+      fields.set(newKey, { ...value });
     });
 
     return fields;
   };
 
-  setKeyByFieldSelector = (field: FieldSelectorType): string => {
+  setKeyByFieldSelector = (field: FieldSelectorType): FieldSelectorType => {
     if (this.fieldIds.has(field)) {
       return this.fieldIds.get(field)!;
     }
 
-    const key = String(this.fieldIds.size + 1);
+    //const key = String(this.fieldIds.size + 1);
+    const key = field;
     this.fieldIds.set(field, key);
     return key;
   };
@@ -287,36 +287,37 @@ class JustValidate {
     );
   }
 
-  setFieldInvalid(key: string, fieldRule: FieldRuleInterface): void {
-    this.fields[key].isValid = false;
-    this.fields[key].errorMessage = this.getFieldErrorMessage(
-      fieldRule,
-      this.fields[key].elem
-    );
-  }
-
-  setFieldValid(
-    key: string,
-    successMessage?: string | CustomMessageFuncType
-  ): void {
-    this.fields[key].isValid = true;
-    if (successMessage !== undefined) {
-      this.fields[key].successMessage = this.getFieldSuccessMessage(
-        successMessage,
-        this.fields[key].elem
-      );
+  setFieldInvalid(key: FieldSelectorType, fieldRule: FieldRuleInterface): void {
+    const field = this.fields.get(key) as unknown as FieldInterface;
+    if (field !== undefined) {
+      field.isValid = false;
+      field.errorMessage = this.getFieldErrorMessage(fieldRule, field.elem);
     }
   }
 
-  setGroupInvalid(key: string, groupRule: GroupRuleInterface): void {
-    this.groupFields[key].isValid = false;
-    this.groupFields[key].errorMessage = this.getGroupErrorMessage(groupRule);
+  setFieldValid(
+    key: FieldSelectorType,
+    successMessage?: string | CustomMessageFuncType
+  ): void {
+    const field = this.fields.get(key) as unknown as FieldInterface;
+    if (field !== undefined) {
+      field.isValid = true;
+      if (successMessage !== undefined) {
+        field.successMessage = this.getFieldSuccessMessage(successMessage, field.elem);
+      }
+    }
   }
 
-  setGroupValid(key: string, groupRule: GroupRuleInterface): void {
-    this.groupFields[key].isValid = true;
-    this.groupFields[key].successMessage =
-      this.getGroupSuccessMessage(groupRule);
+  setGroupInvalid(key: FieldSelectorType, groupRule: GroupRuleInterface): void {
+    const group = this.groupFields.get(key) as unknown as GroupFieldInterface;
+    group.isValid = false;
+    group.errorMessage = this.getGroupErrorMessage(groupRule);
+  }
+
+  setGroupValid(key: FieldSelectorType, groupRule: GroupRuleInterface): void {
+    const group = this.groupFields.get(key) as unknown as GroupFieldInterface;
+    group.isValid = true;
+    group.successMessage = this.getGroupSuccessMessage(groupRule);
   }
 
   getElemValue(elem: HTMLInputElement): ElemValueType {
@@ -331,7 +332,7 @@ class JustValidate {
   }
 
   validateGroupRule(
-    key: string,
+    key: FieldSelectorType,
     elems: HTMLInputElement[],
     groupRule: GroupRuleInterface
   ): Promise<any> | void {
@@ -347,7 +348,7 @@ class JustValidate {
   }
 
   validateFieldRule(
-    key: string,
+    key: FieldSelectorType,
     elem: HTMLInputElement,
     fieldRule: FieldRuleInterface,
     afterInputChanged = false
@@ -726,7 +727,8 @@ class JustValidate {
 
         const result = fieldRule.validator(
           elemValue as string | boolean,
-          this.getCompatibleFields()
+          this.getCompatibleFields(),
+          fieldRule
         );
 
         if (typeof result !== 'boolean' && typeof result !== 'function') {
@@ -738,9 +740,9 @@ class JustValidate {
         if (typeof result === 'function') {
           // we should not call async custom validator on every input change
           if (afterInputChanged) {
-            this.fields[key].asyncCheckPending = true;
+            this.fields.get(key)!.asyncCheckPending = true;
           } else {
-            this.fields[key].asyncCheckPending = false;
+            this.fields.get(key)!.asyncCheckPending = false;
             const promise = result();
 
             if (!isPromise(promise)) {
@@ -809,15 +811,15 @@ class JustValidate {
     return isValid;
   }
 
-  validateField(key: string, afterInputChanged = false): Promise<any> {
-    const field = this.fields[key];
+  validateField(key: FieldSelectorType, afterInputChanged = false): Promise<any> {
+    const field = this.fields.get(key);
 
-    field.isValid = true;
+    field!.isValid = true;
     const promises: Promise<any>[] = [];
-    [...field.rules].reverse().forEach((rule) => {
+    [...field!.rules].reverse().forEach((rule) => {
       const res = this.validateFieldRule(
         key,
-        field.elem,
+        field!.elem,
         rule,
         afterInputChanged
       );
@@ -827,8 +829,8 @@ class JustValidate {
       }
     });
 
-    if (field.isValid) {
-      this.setFieldValid(key, field.config?.successMessage);
+    if (field!.isValid) {
+      this.setFieldValid(key, field!.config?.successMessage);
     }
 
     return Promise.allSettled(promises).finally(() => {
@@ -852,7 +854,7 @@ class JustValidate {
 
     const key = this.getKeyByFieldSelector(fieldSelector);
 
-    if (!key || !this.fields[key]) {
+    if (!key || !this.fields.get(key)) {
       console.error(`Field not found. Check the field selector.`);
       return Promise.reject();
     }
@@ -862,7 +864,7 @@ class JustValidate {
         this.clearFieldStyle(key);
         this.clearFieldLabel(key);
         this.renderFieldError(key, true);
-        resolve(!!this.fields[key].isValid);
+        resolve(!!this.fields.get(key)!.isValid);
       });
     });
   }
@@ -876,7 +878,7 @@ class JustValidate {
 
     const key = this.getKeyByFieldSelector(groupSelector);
 
-    if (!key || !this.groupFields[key]) {
+    if (!key || !this.groupFields.get(key)) {
       console.error(`Group not found. Check the group selector.`);
       return Promise.reject();
     }
@@ -885,16 +887,16 @@ class JustValidate {
       this.validateGroup(key).finally(() => {
         this.clearFieldLabel(key);
         this.renderGroupError(key, true);
-        resolve(!!this.groupFields[key].isValid);
+        resolve(!!this.groupFields.get(key)!.isValid);
       });
     });
   }
 
-  validateGroup(key: string, afterInputChanged = false): Promise<any> {
-    const group = this.groupFields[key];
+  validateGroup(key: FieldSelectorType, afterInputChanged = false): Promise<any> {
+    const group = this.groupFields.get(key);
     const promises: Promise<any>[] = [];
-    [...group.rules].reverse().forEach((rule) => {
-      const res = this.validateGroupRule(key, group.elems, rule);
+    [...group!.rules].reverse().forEach((rule) => {
+      const res = this.validateGroupRule(key, group!.elems, rule);
 
       if (isPromise(res)) {
         promises.push(res as Promise<any>);
@@ -914,8 +916,7 @@ class JustValidate {
   }
 
   focusInvalidField(): void {
-    for (const key in this.fields) {
-      const field = this.fields[key];
+    for (const [, field] of this.fields) {
       if (!field.isValid) {
         setTimeout(() => field.elem.focus(), 0);
         break;
@@ -935,7 +936,7 @@ class JustValidate {
     return new Promise<boolean>((resolve) => {
       const promises: Promise<any>[] = [];
 
-      Object.keys(this.fields).forEach((key) => {
+      this.fields.forEach((_, key) => {
         const promise = this.validateField(key);
 
         if (isPromise(promise)) {
@@ -943,7 +944,7 @@ class JustValidate {
         }
       });
 
-      Object.keys(this.groupFields).forEach((key) => {
+      this.groupFields.forEach((_, key) => {
         const promise = this.validateGroup(key);
 
         if (isPromise(promise)) {
@@ -969,6 +970,9 @@ class JustValidate {
       this.validateHandler(undefined, true).finally(() => {
         if (this.globalConfig.focusInvalidField) {
           this.focusInvalidField();
+        } 
+        if (this.globalConfig.renderErrorsImmediately) {
+          this.renderErrors(true);
         }
         resolve(this.isValid);
       });
@@ -1012,15 +1016,13 @@ class JustValidate {
   }
 
   handleFieldChange = (target: HTMLInputElement): void => {
-    const foundKeys: string[] = [];
+    const foundKeys: FieldSelectorType[] = [];
 
-    for (const key in this.fields) {
-      const field = this.fields[key];
-
+    this.fields.forEach((field, key) => {
       if (field.elem === target) {
         foundKeys.push(key);
       }
-    }
+    });
 
     if (foundKeys.length === 0) {
       return;
@@ -1028,21 +1030,19 @@ class JustValidate {
 
     // Process each found key
     foundKeys.forEach((key) => {
-      this.fields[key].touched = true;
+      this.fields.get(key)!.touched = true;
       this.validateField(key, true);
     });
   };
 
   handleGroupChange = (target: HTMLInputElement): void => {
-    const foundKeys: string[] = [];
+    const foundKeys: FieldSelectorType[] = [];
 
-    for (const key in this.groupFields) {
-      const group = this.groupFields[key];
-
-      if (group.elems.find((elem) => elem === target)) {
+    this.groupFields.forEach((group, key) => {
+      if (group!.elems.find((elem) => elem === target)) {
         foundKeys.push(key);
       }
-    }
+    });
 
     if (foundKeys.length === 0) {
       return;
@@ -1050,7 +1050,7 @@ class JustValidate {
 
     // Process each found key
     foundKeys.forEach((key) => {
-      this.groupFields[key].touched = true;
+      this.groupFields.get(key)!.touched = true;
       this.validateGroup(key, true);
     });
   };
@@ -1139,13 +1139,37 @@ class JustValidate {
 
     const key = this.setKeyByFieldSelector(fieldSelector);
 
-    this.fields[key] = {
-      elem,
-      rules,
-      isValid: undefined,
-      touched: false,
-      config,
-    };
+    // Check if the field already exists
+    let existingField = this.fields.get(key);
+        
+    if (existingField) {
+        // Merge rules with existing rules
+        const mergedRules = [...existingField.rules, ...rules];
+
+        // Update config if a new one is provided, otherwise retain the previous one
+        existingField.rules = mergedRules;
+        existingField.config = config || existingField.config;
+    } else {
+        // Create new field if it doesn't already exist
+        existingField = {
+            elem,
+            rules,
+            isValid: void 0,
+            touched: false,
+            config
+        };
+    }
+
+    // Save the updated field in the Map
+    this.fields.set(key, existingField);
+
+    // this.fields.set(key, {
+    //   elem,
+    //   rules,
+    //   isValid: undefined,
+    //   touched: false,
+    //   config,
+    // });
 
     this.setListeners(elem);
 
@@ -1165,16 +1189,16 @@ class JustValidate {
 
     const key = this.getKeyByFieldSelector(fieldSelector);
 
-    if (!key || !this.fields[key]) {
+    if (!key || !this.fields.get(key)) {
       console.error(`Field not found. Check the field selector.`);
       return this;
     }
 
-    const type = this.getListenerType(this.fields[key].elem.type);
-    this.removeListener(type, this.fields[key].elem, this.handlerChange);
+    const type = this.getListenerType(this.fields.get(key)!.elem.type);
+    this.removeListener(type, this.fields.get(key)!.elem, this.handlerChange);
     this.clearErrors();
 
-    delete this.fields[key];
+    this.fields.delete(key);
     return this;
   }
 
@@ -1187,19 +1211,19 @@ class JustValidate {
 
     const key = this.getKeyByFieldSelector(group);
 
-    if (!key || !this.groupFields[key]) {
+    if (!key || !this.groupFields.get(key)) {
       console.error(`Group not found. Check the group selector.`);
       return this;
     }
 
-    this.groupFields[key].elems.forEach((elem) => {
+    this.groupFields.get(key)!.elems.forEach((elem) => {
       const type = this.getListenerType(elem.type);
       this.removeListener(type, elem, this.handlerChange);
     });
 
     this.clearErrors();
 
-    delete this.groupFields[key];
+    this.groupFields.delete(key);
     return this;
   }
 
@@ -1218,7 +1242,7 @@ class JustValidate {
     let elem;
 
     if (typeof groupField === 'string') {
-      elem = this.form!.querySelector(groupField) as HTMLElement;
+      elem = this.form!.querySelector(groupField);
     } else {
       elem = groupField;
     }
@@ -1241,7 +1265,7 @@ class JustValidate {
 
     const key = this.setKeyByFieldSelector(groupField);
 
-    this.groupFields[key] = {
+    this.groupFields.set(key, {
       rules: [
         {
           rule: GroupRules.Required,
@@ -1249,12 +1273,12 @@ class JustValidate {
           successMessage,
         },
       ],
-      groupElem: elem,
+      groupElem: elem as HTMLElement,
       elems: childrenInputs,
       touched: false,
       isValid: undefined,
       config,
-    };
+    });
 
     inputs.forEach((input) => {
       this.setListeners(input);
@@ -1285,59 +1309,57 @@ class JustValidate {
     this.addListener(type, elem, this.handlerChange);
   }
 
-  clearFieldLabel(key: string): void {
-    this.errorLabels[key]?.remove();
-    this.successLabels[key]?.remove();
+  clearFieldLabel(key: FieldSelectorType): void {
+    this.errorLabels.get(key)?.remove();
+    this.successLabels.get(key)?.remove();
   }
 
-  clearFieldStyle(key: string): void {
-    const field = this.fields[key];
+  clearFieldStyle(key: FieldSelectorType): void {
+    const field = this.fields.get(key);
 
     const errorStyle =
-      field.config?.errorFieldStyle || this.globalConfig.errorFieldStyle;
+      field!.config?.errorFieldStyle || this.globalConfig.errorFieldStyle;
     Object.keys(errorStyle).forEach((key) => {
-      field.elem.style[key] = '';
+      field!.elem.style.setProperty(key, '');
     });
 
     const successStyle =
-      field.config?.successFieldStyle ||
+      field!.config?.successFieldStyle ||
       this.globalConfig.successFieldStyle ||
       {};
     Object.keys(successStyle).forEach((key) => {
-      field.elem.style[key] = '';
+      field!.elem.style.setProperty(key, '');
     });
 
-    field.elem.classList.remove(
+    field!.elem.classList.remove(
       ...getClassList(
-        field.config?.errorFieldCssClass || this.globalConfig.errorFieldCssClass
+        field!.config?.errorFieldCssClass || this.globalConfig.errorFieldCssClass
       ),
       ...getClassList(
-        field.config?.successFieldCssClass ||
+        field!.config?.successFieldCssClass ||
           this.globalConfig.successFieldCssClass
       )
     );
   }
 
   clearErrors(): void {
-    Object.keys(this.errorLabels).forEach((key) =>
-      this.errorLabels[key].remove()
-    );
-    Object.keys(this.successLabels).forEach((key) =>
-      this.successLabels[key].remove()
-    );
+    this.errorLabels.forEach((label) => {
+      label.remove();
+    });
+    this.successLabels.forEach((label) => {
+      label.remove();
+    });
 
-    for (const key in this.fields) {
+    this.fields.forEach((_, key) => {
       this.clearFieldStyle(key);
-    }
+    });
 
-    for (const key in this.groupFields) {
-      const group = this.groupFields[key];
-
+    this.groupFields.forEach((group) => {
       const errorStyle =
         group.config?.errorFieldStyle || this.globalConfig.errorFieldStyle;
       Object.keys(errorStyle).forEach((key) => {
         group.elems.forEach((elem) => {
-          elem.style[key] = '';
+          elem.style.setProperty(key, '');
           elem.classList.remove(
             ...getClassList(
               group.config?.errorFieldCssClass ||
@@ -1353,7 +1375,7 @@ class JustValidate {
         {};
       Object.keys(successStyle).forEach((key) => {
         group.elems.forEach((elem) => {
-          elem.style[key] = '';
+          elem.style.setProperty(key, '');
           elem.classList.remove(
             ...getClassList(
               group.config?.successFieldCssClass ||
@@ -1362,7 +1384,7 @@ class JustValidate {
           );
         });
       });
-    }
+    });
 
     this.tooltips = [];
   }
@@ -1463,7 +1485,7 @@ class JustValidate {
   }
 
   createErrorLabelElem(
-    key: string,
+    key: FieldSelectorType,
     errorMessage: string,
     config?: FieldConfigInterface
   ): HTMLDivElement {
@@ -1491,13 +1513,13 @@ class JustValidate {
       errorLabel.dataset.testId = `error-label-${key}`;
     }
 
-    this.errorLabels[key] = errorLabel;
+    this.errorLabels.set(key, errorLabel);
 
     return errorLabel;
   }
 
   createSuccessLabelElem(
-    key: string,
+    key: FieldSelectorType,
     successMessage?: string,
     config?: FieldConfigInterface
   ): HTMLDivElement | null {
@@ -1524,7 +1546,7 @@ class JustValidate {
       successLabel.dataset.testId = `success-label-${key}`;
     }
 
-    this.successLabels[key] = successLabel;
+    this.successLabels.set(key, successLabel);
 
     return successLabel;
   }
@@ -1623,21 +1645,21 @@ class JustValidate {
       // supports only string selectors for now
       const key = this.getKeyByFieldSelector(fieldName);
 
-      if (!key || !this.fields[key]) {
+      if (!key || !this.fields.get(key)) {
         console.error(`Field not found. Check the field selector.`);
         return;
       }
 
-      const field = this.fields[key];
+      const field = this.fields.get(key);
 
-      field.isValid = !isError;
+      field!.isValid = !isError;
       this.clearFieldStyle(key);
       this.clearFieldLabel(key);
 
       this.renderFieldError(key, false, error);
 
       if (i === 0 && this.globalConfig.focusInvalidField) {
-        setTimeout(() => field.elem.focus(), 0);
+        setTimeout(() => field!.elem.focus(), 0);
       }
     });
   }
@@ -1662,40 +1684,40 @@ class JustValidate {
     this.showLabels(fields, false);
   }
 
-  renderFieldError(key: string, forced = false, message?: string): void {
-    const field = this.fields[key];
+  renderFieldError(key: FieldSelectorType, forced = false, message?: string): void {
+    const field = this.fields.get(key);
 
-    if (field.isValid === false) {
+    if (field!.isValid === false) {
       this.isValid = false;
     }
 
     // do not show if not initialized or not submitted and not touched and not forced message
     if (
-      field.isValid === undefined ||
-      (!forced && !this.isSubmitted && !field.touched && message === undefined)
+      field!.isValid === undefined ||
+      (!forced && !this.isSubmitted && !field!.touched && message === undefined)
     ) {
       return;
     }
 
-    if (field.isValid) {
+    if (field!.isValid) {
       // we should not show success labels if there are async rules pending
-      if (!field.asyncCheckPending) {
+      if (!field!.asyncCheckPending) {
         const successLabel = this.createSuccessLabelElem(
           key,
-          message !== undefined ? message : field.successMessage!,
-          field.config
+          message !== undefined ? message : field!.successMessage!,
+          field!.config
         );
         if (successLabel) {
           this.renderFieldLabel(
-            field.elem,
+            field!.elem,
             successLabel,
-            field.config?.errorsContainer,
+            field!.config?.errorsContainer,
             true
           );
         }
-        field.elem.classList.add(
+        field!.elem.classList.add(
           ...getClassList(
-            field.config?.successFieldCssClass ||
+            field!.config?.successFieldCssClass ||
               this.globalConfig.successFieldCssClass
           )
         );
@@ -1704,72 +1726,72 @@ class JustValidate {
       return;
     }
 
-    field.elem.classList.add(
+    field!.elem.classList.add(
       ...getClassList(
-        field.config?.errorFieldCssClass || this.globalConfig.errorFieldCssClass
+        field!.config?.errorFieldCssClass || this.globalConfig.errorFieldCssClass
       )
     );
 
     const errorLabel = this.createErrorLabelElem(
       key,
-      message !== undefined ? message : field.errorMessage!,
-      field.config
+      message !== undefined ? message : field!.errorMessage!,
+      field!.config
     );
     this.renderFieldLabel(
-      field.elem,
+      field!.elem,
       errorLabel,
-      field.config?.errorsContainer
+      field!.config?.errorsContainer
     );
 
     if (this.isTooltip()) {
       this.tooltips.push(
         this.renderTooltip(
-          field.elem,
+          field!.elem,
           errorLabel,
-          field.config?.tooltip?.position
+          field!.config?.tooltip?.position
         )
       );
     }
   }
 
-  renderGroupError(key: string, force = true): void {
-    const group = this.groupFields[key];
+  renderGroupError(key: FieldSelectorType, force = true): void {
+    const group = this.groupFields.get(key);
 
-    if (group.isValid === false) {
+    if (group!.isValid === false) {
       this.isValid = false;
     }
 
     // do not show if not initialized or not submitted and not touched and not forced
     if (
-      group.isValid === undefined ||
-      (!force && !this.isSubmitted && !group.touched)
+      group!.isValid === undefined ||
+      (!force && !this.isSubmitted && !group!.touched)
     ) {
       return;
     }
 
-    if (group.isValid) {
-      group.elems.forEach((elem) => {
+    if (group!.isValid) {
+      group!.elems.forEach((elem) => {
         Object.assign(
           elem.style,
-          group.config?.successFieldStyle || this.globalConfig.successFieldStyle
+          group!.config?.successFieldStyle || this.globalConfig.successFieldStyle
         );
         elem.classList.add(
           ...getClassList(
-            group.config?.successFieldCssClass ||
+            group!.config?.successFieldCssClass ||
               this.globalConfig.successFieldCssClass
           )
         );
       });
       const successLabel = this.createSuccessLabelElem(
         key,
-        group.successMessage,
-        group.config
+        group!.successMessage,
+        group!.config
       );
       if (successLabel) {
         this.renderGroupLabel(
-          group.groupElem,
+          group!.groupElem,
           successLabel,
-          group.config?.errorsContainer,
+          group!.config?.errorsContainer,
           true
         );
       }
@@ -1778,14 +1800,14 @@ class JustValidate {
 
     this.isValid = false;
 
-    group.elems.forEach((elem) => {
+    group!.elems.forEach((elem) => {
       Object.assign(
         elem.style,
-        group.config?.errorFieldStyle || this.globalConfig.errorFieldStyle
+        group!.config?.errorFieldStyle || this.globalConfig.errorFieldStyle
       );
       elem.classList.add(
         ...getClassList(
-          group.config?.errorFieldCssClass ||
+          group!.config?.errorFieldCssClass ||
             this.globalConfig.errorFieldCssClass
         )
       );
@@ -1793,21 +1815,21 @@ class JustValidate {
 
     const errorLabel = this.createErrorLabelElem(
       key,
-      group.errorMessage!,
-      group.config
+      group!.errorMessage!,
+      group!.config
     );
     this.renderGroupLabel(
-      group.groupElem,
+      group!.groupElem,
       errorLabel,
-      group.config?.errorsContainer
+      group!.config?.errorsContainer
     );
 
     if (this.isTooltip()) {
       this.tooltips.push(
         this.renderTooltip(
-          group.groupElem,
+          group!.groupElem,
           errorLabel,
-          group.config?.tooltip?.position
+          group!.config?.tooltip?.position
         )
       );
     }
@@ -1817,7 +1839,8 @@ class JustValidate {
     if (
       !this.isSubmitted &&
       !forceRevalidation &&
-      !this.globalConfig.validateBeforeSubmitting
+      !this.globalConfig.validateBeforeSubmitting &&
+      !this.globalConfig.renderErrorsImmediately
     ) {
       return;
     }
@@ -1826,12 +1849,12 @@ class JustValidate {
     this.isValid = true;
 
     for (const key in this.groupFields) {
-      this.renderGroupError(key);
+      this.renderGroupError(key, forceRevalidation);
     }
 
-    for (const key in this.fields) {
-      this.renderFieldError(key);
-    }
+    this.fields.forEach((_, key) => {
+      this.renderFieldError(key, forceRevalidation);
+    });
   }
 
   public destroy(): void {
@@ -1839,8 +1862,8 @@ class JustValidate {
       this.removeListener(event.type, event.elem, event.func);
     });
 
-    Object.keys(this.customStyleTags).forEach((key) => {
-      this.customStyleTags[key].remove();
+    this.customStyleTags.forEach((styleTag) => {
+      styleTag.remove();
     });
 
     this.clearErrors();
@@ -1857,14 +1880,14 @@ class JustValidate {
     } else {
       this.initialize(this.form, this.globalConfig);
 
-      Object.keys(this.fields).forEach((key) => {
+      this.fields.forEach((field, key) => {
         const fieldSelector = this.getFieldSelectorByKey(key);
 
         if (fieldSelector) {
           this.addField(
             fieldSelector,
-            [...this.fields[key].rules],
-            this.fields[key].config
+            [...field.rules],
+            field.config
           );
         }
       });

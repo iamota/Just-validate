@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 export type ClassListType = string | string[];
 
 export interface GlobalConfigInterface {
@@ -16,6 +17,7 @@ export interface GlobalConfigInterface {
   errorsContainer?: string | Element | null;
   validateBeforeSubmitting: boolean;
   submitFormAutomatically: boolean;
+  renderErrorsImmediately?: boolean;
 }
 
 export enum Rules {
@@ -67,7 +69,8 @@ export type FieldRuleValueType =
 
 export type ValidatorFuncType = (
   value: string | boolean,
-  context: FieldsInterface
+  context: FieldsInterface,
+  rule: FieldRuleInterface
 ) => ValidatorReturn;
 
 export type CustomMessageFuncType = (
@@ -133,13 +136,9 @@ export interface GroupFieldInterface {
   config?: FieldConfigInterface;
 }
 
-export interface FieldsInterface {
-  [field: string]: FieldInterface;
-}
+export type FieldsInterface = Map<FieldSelectorType, FieldInterface>;
 
-export interface GroupFieldsInterface {
-  [groupField: string]: GroupFieldInterface;
-}
+export type GroupFieldsInterface = Map<FieldSelectorType, GroupFieldInterface>;
 
 export interface EventListenerInterface {
   type: string;
