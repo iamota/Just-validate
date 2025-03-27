@@ -775,33 +775,25 @@ class JustValidate {
   isFormValid(): boolean | undefined {
     let isValid: boolean | undefined = true;
 
-    for (let i = 0, len = Object.values(this.fields).length; i < len; ++i) {
-      const item = Object.values(this.fields)[i];
-
-      if (item.isValid === undefined) {
+    for (const field of this.fields.values()) {
+      if (field.isValid === undefined) {
         isValid = undefined;
         break;
       }
 
-      if (item.isValid === false) {
+      if (field.isValid === false) {
         isValid = false;
         break;
       }
     }
 
-    for (
-      let i = 0, len = Object.values(this.groupFields).length;
-      i < len;
-      ++i
-    ) {
-      const item = Object.values(this.groupFields)[i];
-
-      if (item.isValid === undefined) {
+    for (const group of this.groupFields.values()) {
+      if (group.isValid === undefined) {
         isValid = undefined;
         break;
       }
 
-      if (item.isValid === false) {
+      if (group.isValid === false) {
         isValid = false;
         break;
       }

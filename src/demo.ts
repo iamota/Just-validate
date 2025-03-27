@@ -689,17 +689,13 @@ const showMessages = (): void => {
   document
     .querySelector('#example12_error-btn')
     ?.addEventListener('click', () => {
-      validation.showErrors({
-        '#example12_name': 'The email is invalid!',
-      });
+      validation.showErrors(new Map([['#example12_name', 'The email is invalid!']]));
     });
 
   document
     .querySelector('#example12_success-btn')
     ?.addEventListener('click', () => {
-      validation.showSuccessLabels({
-        '#example12_name': 'The email looks good!',
-      });
+      validation.showSuccessLabels(new Map([['#example12_name', 'The email looks good!']]));
     });
 
   validation

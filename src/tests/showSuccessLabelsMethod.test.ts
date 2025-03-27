@@ -54,9 +54,9 @@ describe('ShowSuccessLabels method', () => {
       getElemByKey('error-label', '#password', validation)
     ).toHaveTextContent('The field is required');
 
-    validation.showSuccessLabels({
-      '#password': 'Your password valid!',
-    });
+    validation.showSuccessLabels(
+      new Map([['#password', 'Your password valid!']]),
+    );
 
     await waitFor(() => {
       expect(
@@ -80,9 +80,9 @@ describe('ShowSuccessLabels method', () => {
       },
     ]);
 
-    validation.showSuccessLabels({
-      '#password': '',
-    });
+    validation.showSuccessLabels(
+      new Map([['#password', '']])
+    );
 
     await waitFor(() => {
       expect(
@@ -102,13 +102,13 @@ describe('ShowSuccessLabels method', () => {
       },
     ]);
 
-    validation.showSuccessLabels({
-      '#password': 'The password is valid',
-    });
+    validation.showSuccessLabels(
+      new Map([['#password', 'The password is valid']])
+    );
 
-    validation.showSuccessLabels({
-      '#password': 'The password is valid',
-    });
+    validation.showSuccessLabels(
+      new Map([['#password', 'The password is valid']])
+    );
 
     expect(
       getAllElemsByKey('success-label', '#password', validation).length

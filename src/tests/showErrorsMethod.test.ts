@@ -51,9 +51,9 @@ describe('ShowErrors method', () => {
       .onSuccess(() => {
         onSubmit();
         setTimeout(() => {
-          validation.showErrors({
-            '#password': 'Your password invalid!',
-          });
+          validation.showErrors(
+            new Map([['#password', 'Your password invalid!']])
+          );
         }, 100);
       });
 
@@ -113,9 +113,9 @@ describe('ShowErrors method', () => {
       .onSuccess(() => {
         onSubmit();
         setTimeout(() => {
-          validation.showErrors({
-            '#password': '',
-          });
+          validation.showErrors(
+            new Map([['#password', '']])
+          );
         }, 100);
       });
 
@@ -146,13 +146,13 @@ describe('ShowErrors method', () => {
       },
     ]);
 
-    validation.showErrors({
-      '#password': 'The password is invalid',
-    });
+    validation.showErrors(
+      new Map([['#password', 'The password is invalid']])
+    );
 
-    validation.showErrors({
-      '#password': 'The password is invalid',
-    });
+    validation.showErrors(
+      new Map([['#password', 'The password is invalid']])
+    );
 
     expect(
       getAllElemsByKey('error-label', '#password', validation).length
