@@ -1639,11 +1639,11 @@ class JustValidate {
   }
 
   showLabels(fields: ShowLabelsInterface, isError: boolean): void {
-    Object.keys(fields).forEach((fieldName, i) => {
-      const error = fields[fieldName];
+    let i = 0;
+    for (const [key, label] of fields) {
+      i++;
 
-      // supports only string selectors for now
-      const key = this.getKeyByFieldSelector(fieldName);
+      const error = label;
 
       if (!key || !this.fields.get(key)) {
         console.error(`Field not found. Check the field selector.`);
@@ -1661,13 +1661,13 @@ class JustValidate {
       if (i === 0 && this.globalConfig.focusInvalidField) {
         setTimeout(() => field!.elem.focus(), 0);
       }
-    });
+    }
   }
 
   public showErrors(fields: ShowLabelsInterface): void {
-    if (typeof fields !== 'object') {
+    if (!(fields instanceof Map)) {
       throw Error(
-        '[showErrors]: Errors should be an object with key: value format'
+        '[showErrors]: Errors should be a Map with DOM Element or Query String keys and Error Message values'
       );
     }
 
@@ -1675,9 +1675,9 @@ class JustValidate {
   }
 
   public showSuccessLabels(fields: ShowLabelsInterface): void {
-    if (typeof fields !== 'object') {
+    if (!(fields instanceof Map)) {
       throw Error(
-        '[showSuccessLabels]: Labels should be an object with key: value format'
+        '[showSuccessLabels]: Labels should be a Map with DOM Element or Query String keys and Error Message values'
       );
     }
 

@@ -166,9 +166,7 @@ export interface TooltipInstance {
 
 export type ElemValueType = boolean | string | FileList | null;
 
-export interface ShowLabelsInterface {
-  [field: string]: string;
-}
+export type ShowLabelsInterface = Map<FieldSelectorType, string>;
 
 export type FieldSelectorType = string | HTMLInputElement | HTMLElement;
 
